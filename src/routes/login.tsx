@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { loginUser } from "@/lib/gym-store";
+import { loginAdmin, loginUser, loginUserFromSupabase, logoutAdmin, logoutUser } from "@/lib/gym-store";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { LogIn } from "lucide-react";
@@ -19,10 +19,20 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const u = loginUser(email, password);
+    if (loginAdmin(email, password)) {
+      logoutUser();
+      toast.success("Admin access granted");
+      navigate({ to: "/admin/dashboard" });
+      return;
+    }
+    let u = loginUser(email, password);
+    if (!u) {
+      u = await loginUserFromSupabase(email, password);
+    }
     if (!u) return toast.error("Invalid credentials");
+    logoutAdmin();
     toast.success(`Welcome back, ${u.fullName.split(" ")[0]}`);
     navigate({ to: "/dashboard" });
   };

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { registerUser, type Gender, type MembershipPlan, type WorkoutGoal, type Timing } from "@/lib/gym-store";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -23,7 +24,41 @@ function Register() {
   });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const onSubmit = (e: React.FormEvent) => {
+  const sendConfirmationEmail = async (email: string, password: string): Promise<{ ok: boolean; message: string }> => {
+    if (!supabase) {
+      return { ok: false, message: "Supabase not configured in .env" };
+    }
+
+    const redirectTo = `${window.location.origin}/login`;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: redirectTo },
+    });
+
+    if (error) {
+      console.error("Supabase signUp error:", error);
+      return { ok: false, message: error.message };
+    }
+
+    const existingUser = data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+    if (existingUser) {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: redirectTo },
+      });
+
+      if (resendError) {
+        console.error("Supabase resend error:", resendError);
+        return { ok: false, message: resendError.message };
+      }
+    }
+
+    return { ok: true, message: "Confirmation email sent. Please check inbox/spam." };
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName.trim()) return toast.error("Full name required");
     const age = Number(form.age);
@@ -33,13 +68,22 @@ function Register() {
     if (form.password.length < 6) return toast.error("Password min 6 chars");
     if (!form.gender || !form.plan || !form.goal || !form.timing) return toast.error("Fill all fields");
 
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const normalizedPassword = form.password.trim();
+    const emailResult = await sendConfirmationEmail(normalizedEmail, normalizedPassword);
+    if (!emailResult.ok) {
+      return toast.error(`Email not sent: ${emailResult.message}`);
+    }
+
     const res = registerUser({
       fullName: form.fullName.trim(), age, gender: form.gender as Gender,
-      mobile: form.mobile, email: form.email.trim().toLowerCase(), address: form.address,
+      mobile: form.mobile, email: normalizedEmail, address: form.address,
       password: form.password, plan: form.plan as MembershipPlan,
       goal: form.goal as WorkoutGoal, timing: form.timing as Timing,
     });
-    if (!res.ok) return toast.error(res.error!);
+    if (!res.ok && res.error !== "Email already registered") return toast.error(res.error!);
+
+    toast.success(emailResult.message);
     toast.success("Welcome to IRONFORGE!");
     navigate({ to: "/login" });
   };

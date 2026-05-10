@@ -1,3 +1,5 @@
+import { supabase } from "@/lib/supabase";
+
 export type MembershipPlan = "Monthly" | "Quarterly" | "Yearly";
 export type WorkoutGoal = "Weight Loss" | "Muscle Gain" | "Fitness";
 export type Timing = "Morning" | "Afternoon" | "Evening";
@@ -23,8 +25,32 @@ const USERS_KEY = "gym_users";
 const SESSION_KEY = "gym_session";
 const ADMIN_KEY = "gym_admin_session";
 
-export const ADMIN_EMAIL = "admin@gym.com";
-export const ADMIN_PASSWORD = "admin123";
+const DEFAULT_ADMIN_EMAIL = "admin@gym.com";
+const DEFAULT_ADMIN_PASSWORD = "admin123";
+
+function resolveAdminEmail(): string {
+  const v = import.meta.env.VITE_ADMIN_EMAIL;
+  if (typeof v === "string" && v.trim() !== "") return v.trim();
+  return DEFAULT_ADMIN_EMAIL;
+}
+
+function resolveAdminPassword(): string {
+  const v = import.meta.env.VITE_ADMIN_PASSWORD;
+  if (typeof v === "string" && v.trim() !== "") return v.trim();
+  return DEFAULT_ADMIN_PASSWORD;
+}
+
+/** Shown on admin login; matches what `loginAdmin` checks (optional env overrides). */
+export const ADMIN_EMAIL = resolveAdminEmail();
+export const ADMIN_PASSWORD = resolveAdminPassword();
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function normalizePassword(password: string): string {
+  return password.trim();
+}
 
 export function getUsers(): GymUser[] {
   if (typeof window === "undefined") return [];
@@ -39,30 +65,119 @@ export function saveUsers(users: GymUser[]) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-export function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): { ok: boolean; error?: string; user?: GymUser } {
+export function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): {
+  ok: boolean;
+  error?: string;
+  user?: GymUser;
+} {
+  const normalizedEmail = normalizeEmail(data.email);
+  const normalizedPassword = normalizePassword(data.password);
   const users = getUsers();
-  if (users.some((u) => u.email.toLowerCase() === data.email.toLowerCase())) {
+  if (users.some((u) => normalizeEmail(u.email) === normalizedEmail)) {
     return { ok: false, error: "Email already registered" };
   }
   const user: GymUser = {
     ...data,
+    email: normalizedEmail,
+    password: normalizedPassword,
     id: crypto.randomUUID(),
     rank: users.length + 1,
     createdAt: new Date().toISOString(),
   };
   saveUsers([...users, user]);
+
+  if (supabase) {
+    void supabase.from("gym_users").insert({
+      id: user.id,
+      rank: user.rank,
+      full_name: user.fullName,
+      age: user.age,
+      gender: user.gender,
+      mobile: user.mobile,
+      email: user.email,
+      address: user.address,
+      password: user.password,
+      plan: user.plan,
+      goal: user.goal,
+      timing: user.timing,
+      created_at: user.createdAt,
+    });
+  }
+
   return { ok: true, user };
 }
 
 export function loginUser(email: string, password: string): GymUser | null {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPassword = normalizePassword(password);
   const user = getUsers().find(
-    (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password,
+    (u) => normalizeEmail(u.email) === normalizedEmail && normalizePassword(u.password) === normalizedPassword,
   );
   if (user) {
     localStorage.setItem(SESSION_KEY, user.id);
     return user;
   }
   return null;
+}
+
+type SupabaseGymUserRow = {
+  id: string;
+  rank: number | null;
+  full_name: string;
+  age: number;
+  gender: Gender;
+  mobile: string;
+  email: string;
+  address: string;
+  password: string;
+  plan: MembershipPlan;
+  goal: WorkoutGoal;
+  timing: Timing;
+  created_at: string;
+};
+
+function toGymUser(row: SupabaseGymUserRow): GymUser {
+  return {
+    id: row.id,
+    rank: row.rank ?? 1,
+    fullName: row.full_name,
+    age: row.age,
+    gender: row.gender,
+    mobile: row.mobile,
+    email: row.email,
+    address: row.address,
+    password: row.password,
+    plan: row.plan,
+    goal: row.goal,
+    timing: row.timing,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loginUserFromSupabase(email: string, password: string): Promise<GymUser | null> {
+  if (!supabase) return null;
+
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPassword = normalizePassword(password);
+
+  const { data, error } = await supabase
+    .from("gym_users")
+    .select(
+      "id,rank,full_name,age,gender,mobile,email,address,password,plan,goal,timing,created_at",
+    )
+    .eq("email", normalizedEmail)
+    .maybeSingle<SupabaseGymUserRow>();
+
+  if (error || !data) return null;
+  if (normalizePassword(data.password) !== normalizedPassword) return null;
+
+  const user = toGymUser(data);
+  const users = getUsers();
+  if (!users.some((u) => u.id === user.id)) {
+    saveUsers([...users, { ...user, rank: users.length + 1 }]);
+  }
+  localStorage.setItem(SESSION_KEY, user.id);
+  return user;
 }
 
 export function getSessionUser(): GymUser | null {
@@ -77,7 +192,9 @@ export function logoutUser() {
 }
 
 export function loginAdmin(email: string, password: string): boolean {
-  if (email.trim().toLowerCase() === ADMIN_EMAIL && password.trim() === ADMIN_PASSWORD) {
+  const e = email.trim().toLowerCase();
+  const p = password.trim();
+  if (e === ADMIN_EMAIL.trim().toLowerCase() && p === ADMIN_PASSWORD.trim()) {
     localStorage.setItem(ADMIN_KEY, "1");
     return true;
   }

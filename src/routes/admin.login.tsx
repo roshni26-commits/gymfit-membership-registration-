@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAdmin } from "@/lib/gym-store";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAdmin, logoutUser } from "@/lib/gym-store";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Shield } from "lucide-react";
@@ -22,6 +22,7 @@ function AdminLogin() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginAdmin(email, password)) {
+      logoutUser();
       toast.success("Admin access granted");
       navigate({ to: "/admin/dashboard" });
     } else toast.error("Invalid admin credentials");
