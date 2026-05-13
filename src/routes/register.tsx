@@ -29,7 +29,11 @@ function Register() {
       return { ok: false, message: "Supabase not configured in .env" };
     }
 
-    const redirectTo = `${window.location.origin}/login`;
+    const envRedirect = (
+      import.meta.env.VITE_SUPABASE_EMAIL_REDIRECT_TO ||
+      import.meta.env.NEXT_PUBLIC_SUPABASE_EMAIL_REDIRECT_TO
+    )?.trim();
+    const redirectTo = envRedirect || `${window.location.origin}/login`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -38,6 +42,13 @@ function Register() {
 
     if (error) {
       console.error("Supabase signUp error:", error);
+      if (error.message.includes("Error sending confirmation email")) {
+        return {
+          ok: false,
+          message:
+            "Supabase could not send confirmation mail. Check Supabase Auth > Email settings (SMTP/provider) and disable a custom redirect URL if it is not allow-listed.",
+        };
+      }
       return { ok: false, message: error.message };
     }
 
@@ -75,7 +86,7 @@ function Register() {
       return toast.error(`Email not sent: ${emailResult.message}`);
     }
 
-    const res = registerUser({
+    const res = await registerUser({
       fullName: form.fullName.trim(), age, gender: form.gender as Gender,
       mobile: form.mobile, email: normalizedEmail, address: form.address,
       password: form.password, plan: form.plan as MembershipPlan,

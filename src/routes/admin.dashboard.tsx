@@ -3,7 +3,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useEffect, useState } from "react";
-import { getUsers, isAdmin, logoutAdmin, type GymUser } from "@/lib/gym-store";
+import { getMembersForAdmin, isAdmin, logoutAdmin, type GymUser } from "@/lib/gym-store";
 import { LogOut, Users, Crown, Activity } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -18,9 +18,14 @@ function AdminDashboard() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!isAdmin()) { navigate({ to: "/admin/login" }); return; }
-    setUsers(getUsers());
-    setReady(true);
+    if (!isAdmin()) {
+      navigate({ to: "/admin/login" });
+      return;
+    }
+    void (async () => {
+      setUsers(await getMembersForAdmin());
+      setReady(true);
+    })();
   }, [navigate]);
 
   if (!ready) return null;

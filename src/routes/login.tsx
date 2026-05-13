@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { loginAdmin, loginUser, loginUserFromSupabase, logoutAdmin, logoutUser } from "@/lib/gym-store";
+import { isAdminCredentialMatch, loginUser, loginUserFromSupabase, logoutAdmin, logoutUser } from "@/lib/gym-store";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { LogIn } from "lucide-react";
@@ -21,10 +21,10 @@ function Login() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginAdmin(email, password)) {
-      logoutUser();
-      toast.success("Admin access granted");
-      navigate({ to: "/admin/dashboard" });
+    if (isAdminCredentialMatch(email, password)) {
+      toast.error("This is member login only. Use Admin Access for staff.", {
+        action: { label: "Admin login", onClick: () => navigate({ to: "/admin/login" }) },
+      });
       return;
     }
     let u = loginUser(email, password);

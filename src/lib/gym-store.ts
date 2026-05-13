@@ -65,17 +65,25 @@ export function saveUsers(users: GymUser[]) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-export function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): {
+export async function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): Promise<{
   ok: boolean;
   error?: string;
   user?: GymUser;
-} {
+}> {
   const normalizedEmail = normalizeEmail(data.email);
   const normalizedPassword = normalizePassword(data.password);
   const users = getUsers();
   if (users.some((u) => normalizeEmail(u.email) === normalizedEmail)) {
     return { ok: false, error: "Email already registered" };
   }
+
+  if (supabase) {
+    const { data: existing } = await supabase.from("gym_users").select("id").eq("email", normalizedEmail).maybeSingle();
+    if (existing) {
+      return { ok: false, error: "Email already registered" };
+    }
+  }
+
   const user: GymUser = {
     ...data,
     email: normalizedEmail,
@@ -87,7 +95,7 @@ export function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): 
   saveUsers([...users, user]);
 
   if (supabase) {
-    void supabase.from("gym_users").insert({
+    const { error: insertError } = await supabase.from("gym_users").insert({
       id: user.id,
       rank: user.rank,
       full_name: user.fullName,
@@ -102,6 +110,14 @@ export function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): 
       timing: user.timing,
       created_at: user.createdAt,
     });
+    if (insertError) {
+      console.error("Supabase gym_users insert:", insertError);
+      saveUsers(getUsers().filter((u) => u.id !== user.id));
+      return {
+        ok: false,
+        error: insertError.message || "Could not save membership to Supabase. Check the gym_users table and RLS.",
+      };
+    }
   }
 
   return { ok: true, user };
@@ -154,6 +170,36 @@ function toGymUser(row: SupabaseGymUserRow): GymUser {
   };
 }
 
+export async function fetchUsersFromSupabase(): Promise<GymUser[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("gym_users")
+    .select("id,rank,full_name,age,gender,mobile,email,address,password,plan,goal,timing,created_at")
+    .order("created_at", { ascending: true });
+  if (error || !data) {
+    if (error) console.error("Supabase gym_users list:", error);
+    return [];
+  }
+  return (data as SupabaseGymUserRow[]).map(toGymUser);
+}
+
+/** Merges remote rows with any local-only members and assigns display ranks by join order. */
+export async function getMembersForAdmin(): Promise<GymUser[]> {
+  const local = getUsers();
+  if (!supabase) return local;
+
+  const remote = await fetchUsersFromSupabase();
+  const byId = new Map<string, GymUser>();
+  for (const u of remote) byId.set(u.id, u);
+  for (const u of local) {
+    if (!byId.has(u.id)) byId.set(u.id, u);
+  }
+  const merged = Array.from(byId.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  return merged.map((u, i) => ({ ...u, rank: i + 1 }));
+}
+
 export async function loginUserFromSupabase(email: string, password: string): Promise<GymUser | null> {
   if (!supabase) return null;
 
@@ -191,14 +237,17 @@ export function logoutUser() {
   localStorage.removeItem(SESSION_KEY);
 }
 
-export function loginAdmin(email: string, password: string): boolean {
+/** Same check as admin login, without writing session (for member login page to reject staff creds). */
+export function isAdminCredentialMatch(email: string, password: string): boolean {
   const e = email.trim().toLowerCase();
   const p = password.trim();
-  if (e === ADMIN_EMAIL.trim().toLowerCase() && p === ADMIN_PASSWORD.trim()) {
-    localStorage.setItem(ADMIN_KEY, "1");
-    return true;
-  }
-  return false;
+  return e === ADMIN_EMAIL.trim().toLowerCase() && p === ADMIN_PASSWORD.trim();
+}
+
+export function loginAdmin(email: string, password: string): boolean {
+  if (!isAdminCredentialMatch(email, password)) return false;
+  localStorage.setItem(ADMIN_KEY, "1");
+  return true;
 }
 
 export function isAdmin(): boolean {

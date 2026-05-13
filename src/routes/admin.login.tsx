@@ -1,10 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SiteNav } from "@/components/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAdmin, logoutUser } from "@/lib/gym-store";
+import { loginAdmin, logoutUser } from "@/lib/gym-store";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Shield } from "lucide-react";
@@ -41,8 +41,8 @@ function AdminLogin() {
           <div className="space-y-2"><Label>Admin Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
           <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
           <Button type="submit" className="w-full bg-gradient-red font-bold uppercase tracking-widest shadow-red">Authenticate</Button>
-          <p className="rounded-md border border-border/40 bg-muted/30 p-3 text-center text-xs text-muted-foreground">
-            Demo: <span className="text-primary">{ADMIN_EMAIL}</span> / <span className="text-primary">{ADMIN_PASSWORD}</span>
+          <p className="text-center text-xs text-muted-foreground">
+            Member? <Link to="/login" className="text-primary hover:underline">Member login</Link>
           </p>
         </form>
       </div>
