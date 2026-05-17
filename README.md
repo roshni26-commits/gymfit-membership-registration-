@@ -84,8 +84,7 @@ npm run dev
 ---
 
 ## 👤 Admin Access
-- **Email**: `roshni.roy280710@gmail.com`
-- **Password**: `Roshni@#2610`
+Admin access is restricted to authorized personnel only. Please contact the system administrator for credentials.
 
 ---
 
