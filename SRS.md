@@ -95,4 +95,4 @@ IRONFORGE is a standalone web application built using modern full-stack technolo
 ---
 **Version**: 1.0.0  
 **Status**: Finalized  
-**Author**: IRONFORGE Development Team
+**Author**: Roshni Roy (IRONFORGE Development Team)
