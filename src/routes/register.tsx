@@ -82,50 +82,50 @@ function Register() {
       <SiteNav />
       <div className="mx-auto max-w-3xl px-6 py-16">
         <div className="text-center">
-          <h1 className="text-5xl">Become a <span className="text-gradient-red">Member</span></h1>
-          <p className="mt-3 text-muted-foreground">Pick your plan. Pick your goal. We'll handle the rest.</p>
+          <h1 className="text-5xl text-glow blink">Become a <span className="text-gradient-primary">Member</span></h1>
+          <p className="mt-3 text-muted-foreground floaty">Pick your plan. Pick your goal. We'll handle the rest.</p>
         </div>
 
-        <form onSubmit={onSubmit} className="glass mt-10 rounded-2xl p-8 space-y-8 shadow-glow">
+        <form onSubmit={onSubmit} className="glass smart-border mt-10 rounded-2xl p-8 space-y-8 shadow-glow perspective-1000">
           <Section title="Basic Information">
-            <Field label="Full Name"><Input value={form.fullName} onChange={(e) => set("fullName", e.target.value)} /></Field>
-            <Field label="Age"><Input type="number" value={form.age} onChange={(e) => set("age", e.target.value)} /></Field>
+            <Field label="Full Name"><Input className="bg-background/50 border-primary/20 focus:border-primary transition-all" value={form.fullName} onChange={(e) => set("fullName", e.target.value)} /></Field>
+            <Field label="Age"><Input type="number" className="bg-background/50 border-primary/20 focus:border-primary transition-all" value={form.age} onChange={(e) => set("age", e.target.value)} /></Field>
             <Field label="Gender">
               <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                <SelectTrigger className="bg-background/50 border-primary/20"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent className="glass"><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
               </Select>
             </Field>
-            <Field label="Mobile Number"><Input value={form.mobile} onChange={(e) => set("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} /></Field>
-            <Field label="Email"><Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
-            <Field label="Password"><Input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} /></Field>
+            <Field label="Mobile Number"><Input className="bg-background/50 border-primary/20 focus:border-primary transition-all" value={form.mobile} onChange={(e) => set("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))} /></Field>
+            <Field label="Email"><Input type="email" className="bg-background/50 border-primary/20 focus:border-primary transition-all" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
+            <Field label="Password"><Input type="password" className="bg-background/50 border-primary/20 focus:border-primary transition-all" value={form.password} onChange={(e) => set("password", e.target.value)} /></Field>
             <div className="md:col-span-2">
-              <Field label="Address"><Textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} /></Field>
+              <Field label="Address"><Textarea className="bg-background/50 border-primary/20 focus:border-primary transition-all" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} /></Field>
             </div>
           </Section>
 
           <Section title="Membership Details">
             <Field label="Membership Plan">
               <Select value={form.plan} onValueChange={(v) => set("plan", v)}>
-                <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
-                <SelectContent><SelectItem value="Monthly">Monthly</SelectItem><SelectItem value="Quarterly">Quarterly</SelectItem><SelectItem value="Yearly">Yearly</SelectItem></SelectContent>
+                <SelectTrigger className="bg-background/50 border-primary/20"><SelectValue placeholder="Select plan" /></SelectTrigger>
+                <SelectContent className="glass"><SelectItem value="Monthly">Monthly</SelectItem><SelectItem value="Quarterly">Quarterly</SelectItem><SelectItem value="Yearly">Yearly</SelectItem></SelectContent>
               </Select>
             </Field>
             <Field label="Workout Goal">
               <Select value={form.goal} onValueChange={(v) => set("goal", v)}>
-                <SelectTrigger><SelectValue placeholder="Select goal" /></SelectTrigger>
-                <SelectContent><SelectItem value="Weight Loss">Weight Loss</SelectItem><SelectItem value="Muscle Gain">Muscle Gain</SelectItem><SelectItem value="Fitness">Fitness</SelectItem></SelectContent>
+                <SelectTrigger className="bg-background/50 border-primary/20"><SelectValue placeholder="Select goal" /></SelectTrigger>
+                <SelectContent className="glass"><SelectItem value="Weight Loss">Weight Loss</SelectItem><SelectItem value="Muscle Gain">Muscle Gain</SelectItem><SelectItem value="Fitness">Fitness</SelectItem></SelectContent>
               </Select>
             </Field>
             <Field label="Preferred Timing">
               <Select value={form.timing} onValueChange={(v) => set("timing", v)}>
-                <SelectTrigger><SelectValue placeholder="Select timing" /></SelectTrigger>
-                <SelectContent><SelectItem value="Morning">Morning</SelectItem><SelectItem value="Afternoon">Afternoon</SelectItem><SelectItem value="Evening">Evening</SelectItem></SelectContent>
+                <SelectTrigger className="bg-background/50 border-primary/20"><SelectValue placeholder="Select timing" /></SelectTrigger>
+                <SelectContent className="glass"><SelectItem value="Morning">Morning</SelectItem><SelectItem value="Afternoon">Afternoon</SelectItem><SelectItem value="Evening">Evening</SelectItem></SelectContent>
               </Select>
             </Field>
           </Section>
 
-          <Button type="submit" size="lg" className="w-full bg-gradient-red text-base font-bold uppercase tracking-widest shadow-red">Forge My Membership</Button>
+          <Button type="submit" size="lg" className="w-full bg-gradient-primary text-base font-bold uppercase tracking-widest shadow-primary pulse-glow hover:scale-105 transition-all">Forge My Membership</Button>
           <p className="text-center text-sm text-muted-foreground">
             Already a member? <Link to="/login" className="text-primary hover:underline">Login</Link>
           </p>

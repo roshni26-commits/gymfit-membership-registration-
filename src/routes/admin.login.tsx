@@ -45,10 +45,10 @@ function AdminLogin() {
       <SiteNav />
       <div className="mx-auto flex max-w-md flex-col px-6 py-20">
         <div className="text-center">
-          <Shield className="mx-auto h-12 w-12 text-primary" />
-          <h1 className="mt-4 text-5xl">Admin <span className="text-gradient-red">Access</span></h1>
+          <Shield className="mx-auto h-12 w-12 text-primary blink" />
+          <h1 className="mt-4 text-5xl text-glow">Admin <span className="text-gradient-primary">Access</span></h1>
         </div>
-        <form onSubmit={onSubmit} className="glass mt-8 space-y-5 rounded-2xl p-8 shadow-glow">
+        <form onSubmit={onSubmit} className="glass smart-border mt-8 space-y-5 rounded-2xl p-8 shadow-glow">
           <div className="space-y-2">
             <Label>Admin Email</Label>
             <Input
@@ -58,6 +58,7 @@ function AdminLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="bg-background/50 border-primary/20 focus:border-primary transition-all"
             />
           </div>
           <div className="space-y-2">
@@ -69,9 +70,10 @@ function AdminLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              className="bg-background/50 border-primary/20 focus:border-primary transition-all"
             />
           </div>
-          <Button type="submit" className="w-full bg-gradient-red font-bold uppercase tracking-widest shadow-red">Authenticate</Button>
+          <Button type="submit" className="w-full bg-gradient-primary font-bold uppercase tracking-widest shadow-primary pulse-glow hover:scale-105 transition-all">Authenticate</Button>
           <p className="text-center text-xs text-muted-foreground">
             Member? <Link to="/login" className="text-primary hover:underline">Member login</Link>
           </p>
