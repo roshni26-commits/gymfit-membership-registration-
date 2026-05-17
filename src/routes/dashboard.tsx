@@ -13,13 +13,19 @@ export const Route = createFileRoute("/dashboard")({
 function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState<GymUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const u = getSessionUser();
-    if (!u) navigate({ to: "/login" });
-    else setUser(u);
+    async function load() {
+      const u = await getSessionUser();
+      if (!u) navigate({ to: "/login" });
+      else setUser(u);
+      setLoading(false);
+    }
+    load();
   }, [navigate]);
 
+  if (loading) return null;
   if (!user) return null;
 
   return (

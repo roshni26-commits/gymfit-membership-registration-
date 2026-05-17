@@ -3,9 +3,13 @@ import { SiteNav } from "@/components/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useEffect, useState } from "react";
-import { getMembersForAdmin, isAdmin, logoutAdmin, type GymUser } from "@/lib/gym-store";
-import { LogOut, Users, Crown, Activity } from "lucide-react";
+import { getMembersForAdmin, isAdmin, logoutAdmin, type GymUser, deleteUser, updateUser, type Gender, type MembershipPlan, type WorkoutGoal, type Timing } from "@/lib/gym-store";
+import { LogOut, Users, Crown, Activity, Trash2, Edit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({ meta: [{ title: "Admin Dashboard — IRONFORGE" }] }),
@@ -17,21 +21,38 @@ function AdminDashboard() {
   const [users, setUsers] = useState<GymUser[]>([]);
   const [ready, setReady] = useState(false);
 
+  const refreshUsers = async () => {
+    setUsers(await getMembersForAdmin());
+  };
+
   useEffect(() => {
     if (!isAdmin()) {
       navigate({ to: "/admin/login" });
       return;
     }
     void (async () => {
-      setUsers(await getMembersForAdmin());
+      await refreshUsers();
       setReady(true);
     })();
   }, [navigate]);
+
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to remove ${name}?`)) {
+      const res = await deleteUser(id);
+      if (res.ok) {
+        toast.success(`${name} removed from the forge.`);
+        await refreshUsers();
+      } else {
+        toast.error(`Error: ${res.error}`);
+      }
+    }
+  };
 
   if (!ready) return null;
 
   return (
     <div className="min-h-screen">
+      <Toaster theme="dark" />
       <SiteNav />
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="flex items-start justify-between gap-4">
@@ -78,7 +99,12 @@ function AdminDashboard() {
                     <TableCell>{u.plan}</TableCell>
                     <TableCell>{u.goal}</TableCell>
                     <TableCell className="text-right">
-                      <UserDetailDialog user={u} />
+                      <div className="flex justify-end gap-2">
+                        <UserDetailDialog user={u} onUpdate={refreshUsers} />
+                        <Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-500/10" onClick={() => handleDelete(u.id, u.fullName)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -101,27 +127,70 @@ function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: R
   );
 }
 
-function UserDetailDialog({ user }: { user: GymUser }) {
+function UserDetailDialog({ user, onUpdate }: { user: GymUser; onUpdate: () => Promise<void> }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({ ...user });
+
+  const handleUpdate = async () => {
+    const res = await updateUser(user.id, {
+      fullName: form.fullName,
+      age: form.age,
+      mobile: form.mobile,
+      address: form.address,
+      plan: form.plan as MembershipPlan,
+      goal: form.goal as WorkoutGoal,
+      timing: form.timing as Timing,
+    });
+    if (res.ok) {
+      toast.success("Member updated successfully");
+      setIsEditing(false);
+      await onUpdate();
+    } else {
+      toast.error(`Update failed: ${res.error}`);
+    }
+  };
+
   return (
-    <Dialog>
+    <Dialog open={isEditing || undefined} onOpenChange={(open) => { if(!open) setIsEditing(false); }}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-primary/40 hover:bg-primary/10">View</Button>
+        <Button size="sm" variant="outline" className="border-primary/40 hover:bg-primary/10">View/Edit</Button>
       </DialogTrigger>
-      <DialogContent className="glass">
-        <DialogHeader><DialogTitle className="text-3xl">{user.fullName}</DialogTitle></DialogHeader>
-        <dl className="grid gap-3 text-sm">
-          {[
-            ["Rank", `#${user.rank}`], ["Age", user.age], ["Gender", user.gender],
-            ["Mobile", user.mobile], ["Email", user.email], ["Address", user.address || "—"],
-            ["Plan", user.plan], ["Goal", user.goal], ["Timing", user.timing],
-            ["Joined", new Date(user.createdAt).toLocaleString()],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between border-b border-border/40 pb-2">
-              <dt className="uppercase tracking-wider text-muted-foreground">{k}</dt>
-              <dd className="font-semibold">{v}</dd>
+      <DialogContent className="glass max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-center justify-between pr-6">
+            <DialogTitle className="text-3xl">{isEditing ? "Edit Member" : user.fullName}</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)}>
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogHeader>
+
+        {isEditing ? (
+          <div className="grid gap-4 py-4 md:grid-cols-2">
+            <div className="space-y-2"><Label>Full Name</Label><Input value={form.fullName} onChange={(e) => setForm({...form, fullName: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Age</Label><Input type="number" value={form.age} onChange={(e) => setForm({...form, age: Number(e.target.value)})} /></div>
+            <div className="space-y-2"><Label>Mobile</Label><Input value={form.mobile} onChange={(e) => setForm({...form, mobile: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={(e) => setForm({...form, address: e.target.value})} /></div>
+            <div className="md:col-span-2 mt-4 flex gap-2">
+              <Button className="flex-1 bg-gradient-red" onClick={handleUpdate}>Save Changes</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setIsEditing(false)}>Cancel</Button>
             </div>
-          ))}
-        </dl>
+          </div>
+        ) : (
+          <dl className="grid gap-3 text-sm">
+            {[
+              ["Rank", `#${user.rank}`], ["Age", user.age], ["Gender", user.gender],
+              ["Mobile", user.mobile], ["Email", user.email], ["Address", user.address || "—"],
+              ["Plan", user.plan], ["Goal", user.goal], ["Timing", user.timing],
+              ["Joined", new Date(user.createdAt).toLocaleString()],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between border-b border-border/40 pb-2">
+                <dt className="uppercase tracking-wider text-muted-foreground">{k}</dt>
+                <dd className="font-semibold">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </DialogContent>
     </Dialog>
   );

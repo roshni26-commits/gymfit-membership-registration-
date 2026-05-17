@@ -6,17 +6,21 @@ import { getSessionUser, isAdmin, logoutAdmin, logoutUser } from "@/lib/gym-stor
 export function SiteNav() {
   const navigate = useNavigate();
   const location = useRouterState({ select: (s) => s.location.pathname });
-  const [user, setUser] = useState<ReturnType<typeof getSessionUser>>(null);
+  const [user, setUser] = useState<any>(null);
   const [admin, setAdmin] = useState(false);
 
   useEffect(() => {
-    setUser(getSessionUser());
-    setAdmin(isAdmin());
+    async function check() {
+      const u = await getSessionUser();
+      setUser(u);
+      setAdmin(isAdmin());
+    }
+    check();
   }, [location]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (admin) logoutAdmin();
-    if (user) logoutUser();
+    if (user) await logoutUser();
     setUser(null);
     setAdmin(false);
     navigate({ to: "/" });

@@ -14,7 +14,6 @@ export interface GymUser {
   mobile: string;
   email: string;
   address: string;
-  password: string;
   plan: MembershipPlan;
   goal: WorkoutGoal;
   timing: Timing;
@@ -22,34 +21,23 @@ export interface GymUser {
 }
 
 const USERS_KEY = "gym_users";
-const SESSION_KEY = "gym_session";
 const ADMIN_KEY = "gym_admin_session";
 
-const DEFAULT_ADMIN_EMAIL = "admin@gym.com";
-const DEFAULT_ADMIN_PASSWORD = "admin123";
+const DEFAULT_ADMIN_EMAIL = "roshni.roy280710@gmail.com";
+const DEFAULT_ADMIN_PASSWORD = "Roshni@#2610";
 
 function resolveAdminEmail(): string {
-  const v = import.meta.env.VITE_ADMIN_EMAIL;
-  if (typeof v === "string" && v.trim() !== "") return v.trim();
-  return DEFAULT_ADMIN_EMAIL;
+  // Hardcoding for now to ensure user can login
+  return "roshni.roy280710@gmail.com";
 }
 
 function resolveAdminPassword(): string {
-  const v = import.meta.env.VITE_ADMIN_PASSWORD;
-  if (typeof v === "string" && v.trim() !== "") return v.trim();
-  return DEFAULT_ADMIN_PASSWORD;
+  // Hardcoding for now to ensure user can login
+  return "Roshni@#2610";
 }
-
-/** Shown on admin login; matches what `loginAdmin` checks (optional env overrides). */
-export const ADMIN_EMAIL = resolveAdminEmail();
-export const ADMIN_PASSWORD = resolveAdminPassword();
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-function normalizePassword(password: string): string {
-  return password.trim();
 }
 
 export function getUsers(): GymUser[] {
@@ -65,20 +53,22 @@ export function saveUsers(users: GymUser[]) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-export async function registerUser(data: Omit<GymUser, "id" | "rank" | "createdAt">): Promise<{
+export async function registerUser(
+  data: Omit<GymUser, "rank" | "createdAt">,
+): Promise<{
   ok: boolean;
   error?: string;
   user?: GymUser;
 }> {
   const normalizedEmail = normalizeEmail(data.email);
-  const normalizedPassword = normalizePassword(data.password);
   const users = getUsers();
-  if (users.some((u) => normalizeEmail(u.email) === normalizedEmail)) {
-    return { ok: false, error: "Email already registered" };
-  }
 
   if (supabase) {
-    const { data: existing } = await supabase.from("gym_users").select("id").eq("email", normalizedEmail).maybeSingle();
+    const { data: existing } = await supabase
+      .from("gym_users")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
     if (existing) {
       return { ok: false, error: "Email already registered" };
     }
@@ -87,8 +77,6 @@ export async function registerUser(data: Omit<GymUser, "id" | "rank" | "createdA
   const user: GymUser = {
     ...data,
     email: normalizedEmail,
-    password: normalizedPassword,
-    id: crypto.randomUUID(),
     rank: users.length + 1,
     createdAt: new Date().toISOString(),
   };
@@ -104,7 +92,6 @@ export async function registerUser(data: Omit<GymUser, "id" | "rank" | "createdA
       mobile: user.mobile,
       email: user.email,
       address: user.address,
-      password: user.password,
       plan: user.plan,
       goal: user.goal,
       timing: user.timing,
@@ -115,25 +102,14 @@ export async function registerUser(data: Omit<GymUser, "id" | "rank" | "createdA
       saveUsers(getUsers().filter((u) => u.id !== user.id));
       return {
         ok: false,
-        error: insertError.message || "Could not save membership to Supabase. Check the gym_users table and RLS.",
+        error:
+          insertError.message ||
+          "Could not save membership to Supabase. Check the gym_users table and RLS.",
       };
     }
   }
 
   return { ok: true, user };
-}
-
-export function loginUser(email: string, password: string): GymUser | null {
-  const normalizedEmail = normalizeEmail(email);
-  const normalizedPassword = normalizePassword(password);
-  const user = getUsers().find(
-    (u) => normalizeEmail(u.email) === normalizedEmail && normalizePassword(u.password) === normalizedPassword,
-  );
-  if (user) {
-    localStorage.setItem(SESSION_KEY, user.id);
-    return user;
-  }
-  return null;
 }
 
 type SupabaseGymUserRow = {
@@ -145,7 +121,6 @@ type SupabaseGymUserRow = {
   mobile: string;
   email: string;
   address: string;
-  password: string;
   plan: MembershipPlan;
   goal: WorkoutGoal;
   timing: Timing;
@@ -162,7 +137,6 @@ function toGymUser(row: SupabaseGymUserRow): GymUser {
     mobile: row.mobile,
     email: row.email,
     address: row.address,
-    password: row.password,
     plan: row.plan,
     goal: row.goal,
     timing: row.timing,
@@ -174,7 +148,9 @@ export async function fetchUsersFromSupabase(): Promise<GymUser[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("gym_users")
-    .select("id,rank,full_name,age,gender,mobile,email,address,password,plan,goal,timing,created_at")
+    .select(
+      "id,rank,full_name,age,gender,mobile,email,address,plan,goal,timing,created_at",
+    )
     .order("created_at", { ascending: true });
   if (error || !data) {
     if (error) console.error("Supabase gym_users list:", error);
@@ -200,48 +176,43 @@ export async function getMembersForAdmin(): Promise<GymUser[]> {
   return merged.map((u, i) => ({ ...u, rank: i + 1 }));
 }
 
-export async function loginUserFromSupabase(email: string, password: string): Promise<GymUser | null> {
+export async function getSessionUser(): Promise<GymUser | null> {
   if (!supabase) return null;
 
-  const normalizedEmail = normalizeEmail(email);
-  const normalizedPassword = normalizePassword(password);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
 
   const { data, error } = await supabase
     .from("gym_users")
     .select(
-      "id,rank,full_name,age,gender,mobile,email,address,password,plan,goal,timing,created_at",
+      "id,rank,full_name,age,gender,mobile,email,address,plan,goal,timing,created_at",
     )
-    .eq("email", normalizedEmail)
+    .eq("id", session.user.id)
     .maybeSingle<SupabaseGymUserRow>();
 
   if (error || !data) return null;
-  if (normalizePassword(data.password) !== normalizedPassword) return null;
+  return toGymUser(data);
+}
 
-  const user = toGymUser(data);
-  const users = getUsers();
-  if (!users.some((u) => u.id === user.id)) {
-    saveUsers([...users, { ...user, rank: users.length + 1 }]);
+export async function logoutUser() {
+  if (supabase) {
+    await supabase.auth.signOut();
   }
-  localStorage.setItem(SESSION_KEY, user.id);
-  return user;
-}
-
-export function getSessionUser(): GymUser | null {
-  if (typeof window === "undefined") return null;
-  const id = localStorage.getItem(SESSION_KEY);
-  if (!id) return null;
-  return getUsers().find((u) => u.id === id) ?? null;
-}
-
-export function logoutUser() {
-  localStorage.removeItem(SESSION_KEY);
 }
 
 /** Same check as admin login, without writing session (for member login page to reject staff creds). */
-export function isAdminCredentialMatch(email: string, password: string): boolean {
+export function isAdminCredentialMatch(
+  email: string,
+  password: string,
+): boolean {
   const e = email.trim().toLowerCase();
   const p = password.trim();
-  return e === ADMIN_EMAIL.trim().toLowerCase() && p === ADMIN_PASSWORD.trim();
+  return (
+    e === resolveAdminEmail().trim().toLowerCase() &&
+    p === resolveAdminPassword().trim()
+  );
 }
 
 export function loginAdmin(email: string, password: string): boolean {
@@ -255,6 +226,52 @@ export function isAdmin(): boolean {
   return localStorage.getItem(ADMIN_KEY) === "1";
 }
 
+export async function deleteUser(id: string): Promise<{ ok: boolean; error?: string }> {
+  const users = getUsers();
+  saveUsers(users.filter((u) => u.id !== id));
+
+  if (supabase) {
+    const { error } = await supabase.from("gym_users").delete().eq("id", id);
+    if (error) {
+      console.error("Supabase delete error:", error);
+      return { ok: false, error: error.message };
+    }
+  }
+  return { ok: true };
+}
+
+export async function updateUser(
+  id: string,
+  data: Partial<Omit<GymUser, "id" | "createdAt">>,
+): Promise<{ ok: boolean; error?: string }> {
+  const users = getUsers();
+  const index = users.findIndex((u) => u.id === id);
+  if (index !== -1) {
+    users[index] = { ...users[index], ...data };
+    saveUsers(users);
+  }
+
+  if (supabase) {
+    const { error } = await supabase.from("gym_users").update({
+      full_name: data.fullName,
+      age: data.age,
+      gender: data.gender,
+      mobile: data.mobile,
+      address: data.address,
+      plan: data.plan,
+      goal: data.goal,
+      timing: data.timing,
+    }).eq("id", id);
+    
+    if (error) {
+      console.error("Supabase update error:", error);
+      return { ok: false, error: error.message };
+    }
+  }
+  return { ok: true };
+}
+
 export function logoutAdmin() {
   localStorage.removeItem(ADMIN_KEY);
 }
+

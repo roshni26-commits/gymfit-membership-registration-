@@ -24,51 +24,6 @@ function Register() {
   });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const sendConfirmationEmail = async (email: string, password: string): Promise<{ ok: boolean; message: string }> => {
-    if (!supabase) {
-      return { ok: false, message: "Supabase not configured in .env" };
-    }
-
-    const envRedirect = (
-      import.meta.env.VITE_SUPABASE_EMAIL_REDIRECT_TO ||
-      import.meta.env.NEXT_PUBLIC_SUPABASE_EMAIL_REDIRECT_TO
-    )?.trim();
-    const redirectTo = envRedirect || `${window.location.origin}/login`;
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: redirectTo },
-    });
-
-    if (error) {
-      console.error("Supabase signUp error:", error);
-      if (error.message.includes("Error sending confirmation email")) {
-        return {
-          ok: false,
-          message:
-            "Supabase could not send confirmation mail. Check Supabase Auth > Email settings (SMTP/provider) and disable a custom redirect URL if it is not allow-listed.",
-        };
-      }
-      return { ok: false, message: error.message };
-    }
-
-    const existingUser = data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
-    if (existingUser) {
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: redirectTo },
-      });
-
-      if (resendError) {
-        console.error("Supabase resend error:", resendError);
-        return { ok: false, message: resendError.message };
-      }
-    }
-
-    return { ok: true, message: "Confirmation email sent. Please check inbox/spam." };
-  };
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName.trim()) return toast.error("Full name required");
@@ -79,23 +34,45 @@ function Register() {
     if (form.password.length < 6) return toast.error("Password min 6 chars");
     if (!form.gender || !form.plan || !form.goal || !form.timing) return toast.error("Fill all fields");
 
+    if (!supabase) return toast.error("Supabase not configured");
+
     const normalizedEmail = form.email.trim().toLowerCase();
-    const normalizedPassword = form.password.trim();
-    const emailResult = await sendConfirmationEmail(normalizedEmail, normalizedPassword);
-    if (!emailResult.ok) {
-      return toast.error(`Email not sent: ${emailResult.message}`);
+    
+    // 1. Sign up with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: form.password.trim(),
+    });
+
+    if (authError) {
+      console.error("Auth error:", authError);
+      return toast.error(authError.message);
     }
 
-    const res = await registerUser({
-      fullName: form.fullName.trim(), age, gender: form.gender as Gender,
-      mobile: form.mobile, email: normalizedEmail, address: form.address,
-      password: form.password, plan: form.plan as MembershipPlan,
-      goal: form.goal as WorkoutGoal, timing: form.timing as Timing,
-    });
-    if (!res.ok && res.error !== "Email already registered") return toast.error(res.error!);
+    if (!authData.user) return toast.error("Failed to create user account");
 
-    toast.success(emailResult.message);
-    toast.success("Welcome to IRONFORGE!");
+    // 2. Save extra info to gym_users table
+    const res = await registerUser({
+      id: authData.user.id,
+      fullName: form.fullName.trim(),
+      age,
+      gender: form.gender as Gender,
+      mobile: form.mobile,
+      email: normalizedEmail,
+      address: form.address,
+      plan: form.plan as MembershipPlan,
+      goal: form.goal as WorkoutGoal,
+      timing: form.timing as Timing,
+    });
+
+    if (!res.ok) {
+      console.error("Metadata error:", res.error);
+      // Note: User is already created in Auth, but metadata failed. 
+      // In a real app, you might want to handle this rollback or retry.
+      return toast.error(`Account created but details failed: ${res.error}`);
+    }
+
+    toast.success("Welcome to IRONFORGE! Please check your email for confirmation.");
     navigate({ to: "/login" });
   };
 

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { isAdminCredentialMatch, loginUser, loginUserFromSupabase, logoutAdmin, logoutUser } from "@/lib/gym-store";
+import { isAdminCredentialMatch, loginAdmin, logoutAdmin } from "@/lib/gym-store";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { LogIn } from "lucide-react";
@@ -21,20 +22,35 @@ function Login() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isAdminCredentialMatch(email, password)) {
-      toast.error("This is member login only. Use Admin Access for staff.", {
-        action: { label: "Admin login", onClick: () => navigate({ to: "/admin/login" }) },
-      });
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (!supabase) return toast.error("Supabase not configured");
+
+    // 1. Check if it's the Admin
+    if (isAdminCredentialMatch(trimmedEmail, trimmedPassword)) {
+      loginAdmin(trimmedEmail, trimmedPassword);
+      toast.success("Welcome back, Admin!");
+      navigate({ to: "/admin/dashboard" });
       return;
     }
-    let u = loginUser(email, password);
-    if (!u) {
-      u = await loginUserFromSupabase(email, password);
+
+    // 2. Otherwise, treat as a normal Member
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password: trimmedPassword,
+    });
+
+    if (error) {
+      console.error("Login error:", error);
+      return toast.error(error.message);
     }
-    if (!u) return toast.error("Invalid credentials");
-    logoutAdmin();
-    toast.success(`Welcome back, ${u.fullName.split(" ")[0]}`);
-    navigate({ to: "/dashboard" });
+
+    if (data.user) {
+      logoutAdmin(); // Ensure admin session is cleared if a user logs in
+      toast.success(`Welcome back!`);
+      navigate({ to: "/dashboard" });
+    }
   };
 
   return (

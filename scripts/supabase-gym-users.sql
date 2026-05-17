@@ -2,7 +2,7 @@
 -- Creates the table the app writes to on registration (gym-store.ts).
 
 create table if not exists public.gym_users (
-  id uuid primary key,
+  id uuid primary key references auth.users on delete cascade,
   rank integer,
   full_name text not null,
   age integer not null,
@@ -10,7 +10,6 @@ create table if not exists public.gym_users (
   mobile text not null,
   email text not null unique,
   address text not null default '',
-  password text not null,
   plan text not null,
   goal text not null,
   timing text not null,
@@ -21,13 +20,25 @@ alter table public.gym_users enable row level security;
 
 drop policy if exists "gym_users_anon_insert" on public.gym_users;
 drop policy if exists "gym_users_anon_select" on public.gym_users;
+drop policy if exists "Users can view their own data" on public.gym_users;
+drop policy if exists "Users can insert their own data" on public.gym_users;
+drop policy if exists "Admins can view all data" on public.gym_users;
 
+-- Allow public insertion during registration
 create policy "gym_users_anon_insert"
   on public.gym_users for insert
   to anon, authenticated
   with check (true);
 
-create policy "gym_users_anon_select"
+-- Users can only see their own data
+create policy "Users can view their own data"
   on public.gym_users for select
-  to anon, authenticated
-  using (true);
+  to authenticated
+  using (auth.uid() = id);
+
+-- For Admin (You can refine this with a custom claim or specific email check)
+create policy "Admins can view all data"
+  on public.gym_users for select
+  to authenticated
+  using (auth.email() = 'admin@gym.com'); -- Replace with your actual admin email
+
